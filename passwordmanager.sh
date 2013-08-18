@@ -41,19 +41,22 @@ function showpasswords() {
 }
 
 function editpasswords() {
+   local ED="$1"
    echo "$1 ist ein Editor der nur mit der Tastatur bedient wird."
    if [ "$1" == "vim" ]; then
       echo "Zum einfügen von Text muss in den Einfügen-Modus mit der Taste 'i' gewechselt werden."
       echo "Zum Ende mit ESC aus dem Einfügen-Modus aussteigen."
       echo "Mit :x speichern und beenden, mit :q! ohne Speichern beenden."
+      ED="$ED -Z"
    else
       echo "Unterhalb des Editors sind alle Tastenkombinationen aufgelistet."
       echo "Das ^ Zeichen entspricht dabei der Strg-Taste."
    fi
+
    waitforenter
 
    echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg"
-   $1 "$PWFILE"
+   $ED "$PWFILE"
    echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE"
    rm "$PWFILE"
 
