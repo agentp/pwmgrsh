@@ -223,6 +223,11 @@ fi
 
 cd "$PWROOT"
 
+# Kill unencrypted pasword file if exist
+if [ -f "$PWFILE" ]; then
+   rm "$PWFILE"
+fi
+
 # Initialize GIT repo
 if [ ! -d "$PWROOT/.git" ]; then
    git init
