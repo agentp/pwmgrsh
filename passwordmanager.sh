@@ -36,11 +36,23 @@ function killpwfile() {
    fi
 }
 
+function setpwfilepermissions() {
+   if [ -f "$PWFILE" ]; then
+      chown $USER:$GROUP "$PWFILE"
+      chmod u=rwx,go=- "$PWFILE"
+   fi
+   if [ -f "$PWFILE.gpg" ]; then
+      chown $USER:$GROUP "$PWFILE.gpg"
+      chmod u=rwx,go=- "$PWFILE.gpg"
+   fi
+}
+
 function fileencrypt() {
    createpwfile
    gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE" < "$TMPPWFILE" 2> /dev/null
    RES=$?
    killpwfile
+   setpwfilepermissions
    return $RES
 }
 
@@ -55,6 +67,7 @@ function filedecrypt() {
       RES=$?
    fi
    killpwfile
+   setpwfilepermissions
    return $RES
 }
 
