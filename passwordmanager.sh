@@ -22,6 +22,42 @@ function waitforenter() {
    read
 }
 
+function createpwfile() {
+   killpwfile
+   touch "$TMPPWFILE"
+   chown $USER:$GROUP "$TMPPWFILE"
+   chmod u=rwx,go=- "$TMPPWFILE"
+   echo -n "$PW" > "$TMPPWFILE"
+}
+
+function killpwfile() {
+   if [ -f "$TMPPWFILE" ]; then
+      rm "$TMPPWFILE"
+   fi
+}
+
+function fileencrypt() {
+   createpwfile
+   gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE" < "$TMPPWFILE" 2> /dev/null
+   RES=$?
+   killpwfile
+   return $RES
+}
+
+function filedecrypt() {
+   createpwfile
+   RES=9
+   if [ "$1" == "echo" ]; then
+      gpg -q --batch --yes --output - --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
+      RES=$?
+   else
+      gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
+      RES=$?
+   fi
+   killpwfile
+   return $RES
+}
+
 function showpasswords() {
    clear
    echo
@@ -30,7 +66,7 @@ function showpasswords() {
    echo
 
    if [ -f "$PWFILE.gpg" ]; then
-      echo "$PW" | gpg -q --batch --yes --output - --passphrase-fd 0 "$PWFILE.gpg" 2> /dev/null
+      filedecrypt "echo"
    else
       echo "Keine verschlüsselte Passwortdatei gefunden"
    fi
@@ -47,17 +83,18 @@ function editpasswords() {
       echo "Zum einfügen von Text muss in den Einfügen-Modus mit der Taste 'i' gewechselt werden."
       echo "Zum Ende mit ESC aus dem Einfügen-Modus aussteigen."
       echo "Mit :x speichern und beenden, mit :q! ohne Speichern beenden."
-      ED="$ED -Z"
+      ED="$ED -Z -n --noplugin"
    else
       echo "Unterhalb des Editors sind alle Tastenkombinationen aufgelistet."
       echo "Das ^ Zeichen entspricht dabei der Strg-Taste."
+      ED="$ED -R -i"
    fi
 
    waitforenter
 
-   echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg"
+   filedecrypt
    $ED "$PWFILE"
-   echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE"
+   fileencrypt
    rm "$PWFILE"
 
    clear
@@ -96,9 +133,9 @@ function changemasterpassword() {
    echo
 
    if [ "$TMPPWA" == "$TMPPWB" ]; then
-      echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg" 2> /dev/null
+      filedecrypt
       PW="$TMPPWA"
-      echo "$PW" | gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE" 2> /dev/null
+      fileencrypt
       rm "$PWFILE"
       echo
       git add -A
@@ -114,7 +151,7 @@ function changemasterpassword() {
 
 function checkmasterpw() {
    if [ -f "$PWFILE.gpg" ]; then
-      echo "$1" | gpg -q --batch --yes --output - --passphrase-fd 0 "$PWFILE.gpg" 2> /dev/null > /dev/null
+      filedecrypt "echo" 2> /dev/null > /dev/null
       echo $?
    else
       echo 1
@@ -129,6 +166,11 @@ function checkprogram() {
 
 
 
+clear
+echo
+echo "Password Manager Shell (pwmgrsh) by Christian Blechert"
+echo "Letzte Änderung: 2013-08-19"
+echo "Source Code: https://github.com/agentp/pwmgrsh"
 echo
 echo "Prüfe auf alle benötigten Programme..."
 ERROR=0
@@ -159,6 +201,7 @@ GROUP=$(id -g -n)
 # Set PWROOT
 PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/passwordmanager"
 PWFILE="$PWROOT/passwords.txt"
+TMPPWFILE="$PWROOT/.temppw"
 
 # Create passwordmanager directory
 if [ ! -d "$PWROOT" ]; then
@@ -171,22 +214,23 @@ cd "$PWROOT"
 if [ ! -d "$PWROOT/.git" ]; then
    git init
    echo "$PWFILE" > .gitignore
+   echo "$TMPPWFILE" >> .gitignore
    git add -A
    git commit -m "Created git repo and added .gitignore"
 fi
 
 # Set permissions
-chown -R $USER:$USER "$PWROOT"
+chown -R $USER:$GROUP "$PWROOT"
 chmod u=rwx,go=- "$PWROOT"
 
 # Enter masterpw
 PW=$(readpassword "Bitte Masterkennwort eingeben")
 RESULT=$(checkmasterpw "$PW")
 
-echo $RESULT
-
 # Check MasterPW
 if [ "$RESULT" == "2" ]; then
+   echo
+   echo
    echo "Masterpasswort ist nicht korrekt!"
    echo "Verbindung wird beendet!"
    waitforenter
