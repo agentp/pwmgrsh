@@ -6,3 +6,9 @@ Any change will stored in a git repository. Of course only the encrypted data.
 * View and Edit
 * vim and nano supported
 * Store changes in a git repository
+
+Screenshots
+-----------
+![Login](/Screenshot-11.png "Login")
+
+![Mainmenu](/Screenshot-12.png "Mainmenu")
