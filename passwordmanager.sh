@@ -1,6 +1,13 @@
 #!/bin/bash
 
+# Check the given program
+function checkprogram() {
+   local exist=0
+   type $1 >/dev/null 2>&1 || { local exist=1; }
+   echo "$exist"
+}
 
+# Read a password and show only stars
 function readpassword() {
    unset password
    prompt="$1: "
@@ -16,26 +23,48 @@ function readpassword() {
    echo $password
 }
 
+# Pause the script execution and wait for enter
 function waitforenter() {
    echo
    echo -n "Enter drücken zum fortfahren... "
    read
 }
 
+# Unknown option!
+function unknownoption() {
+   clear
+   echo
+   echo "Ungültige Option"
+   waitforenter
+}
+
+# Change the Linux password
+function changepassword() {
+   clear
+   echo "Das alte Passwort eingeben, danach zwei mal das neue."
+   echo "Dabei werden keinerlei Eingaben angezeigt!"
+   echo
+   passwd
+   waitforenter
+}
+
+# Pipe the GPG password in a file and protect the file
 function createpwfile() {
    killpwfile
    touch "$TMPPWFILE"
    chown $USER:$GROUP "$TMPPWFILE"
    chmod u=rwx,go=- "$TMPPWFILE"
-   echo -n "$PW" > "$TMPPWFILE"
+   echo -n "$1" > "$TMPPWFILE"
 }
 
+# Delete the password file
 function killpwfile() {
    if [ -f "$TMPPWFILE" ]; then
       rm "$TMPPWFILE"
    fi
 }
 
+# Protect the files
 function setpwfilepermissions() {
    if [ -f "$PWFILE" ]; then
       chown $USER:$GROUP "$PWFILE"
@@ -47,30 +76,44 @@ function setpwfilepermissions() {
    fi
 }
 
+# Encrypt the password list
 function fileencrypt() {
-   createpwfile
+   createpwfile "$1"
    gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE" < "$TMPPWFILE" 2> /dev/null
-   RES=$?
+   local RES=$?
    killpwfile
    setpwfilepermissions
    return $RES
 }
 
+# Decrypt the password list
 function filedecrypt() {
-   createpwfile
-   RES=9
-   if [ "$1" == "echo" ]; then
+   createpwfile "$1"
+   local RES=9
+   if [ "$2" == "echo" ]; then
       gpg -q --batch --yes --output - --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
       RES=$?
    else
       gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
       RES=$?
    fi
+   
    killpwfile
    setpwfilepermissions
    return $RES
 }
 
+# Check GPG password is correct
+function checkmasterpw() {
+   if [ -f "$PWFILE.gpg" ]; then
+      filedecrypt "$1" "echo" 2> /dev/null > /dev/null
+      echo $?
+   else
+      echo 1
+   fi
+}
+
+# Display the password list
 function showpasswords() {
    clear
    echo
@@ -79,7 +122,7 @@ function showpasswords() {
    echo
 
    if [ -f "$PWFILE.gpg" ]; then
-      filedecrypt "echo"
+      filedecrypt "$PW" "echo"
    else
       echo "Keine verschlüsselte Passwortdatei gefunden"
    fi
@@ -89,6 +132,7 @@ function showpasswords() {
    waitforenter
 }
 
+# Edit the password list
 function editpasswords() {
    local ED="$1"
    echo "$1 ist ein Editor der nur mit der Tastatur bedient wird."
@@ -105,9 +149,9 @@ function editpasswords() {
 
    waitforenter
 
-   filedecrypt
+   filedecrypt "$PW"
    $ED "$PWFILE"
-   fileencrypt
+   fileencrypt "$PW"
    rm "$PWFILE"
 
    clear
@@ -118,37 +162,32 @@ function editpasswords() {
       cd "$PWROOT"
       echo
       git add -A
-      git commit -m "Backup $(date)"
+      git commit -m "Passwortliste bearbeitet $(date)"
       waitforenter
    fi
 }
 
-function unknownoption() {
-   clear
-   echo
-   echo "Ungültige Option"
-   waitforenter
-}
-
-function changepassword() {
-   clear
-   echo "Das alte Passwort eingeben, danach zwei mal das neue."
-   echo "Dabei werden keinerlei Eingaben angezeigt!"
-   echo
-   passwd
-   waitforenter
-}
-
+# Change the GPG password
 function changemasterpassword() {
+   local OLDPW=$(readpassword "Aktuelles Masterkennwort eingeben")
+   local AKTPWRES=$(checkmasterpw "$OLDPW")
+   
+   echo
+   if [ "$AKTPWRES" == "2" ]; then
+      echo "Aktuelles Masterkennwort ist falsch!"
+      waitforenter
+      return
+   fi
+
    local TMPPWA=$(readpassword "Neues Masterkennwort eingeben")
    echo
    local TMPPWB=$(readpassword "Neues Masterkennwort wiederholen")
    echo
 
    if [ "$TMPPWA" == "$TMPPWB" ]; then
-      filedecrypt
+      filedecrypt "$PW"
       PW="$TMPPWA"
-      fileencrypt
+      fileencrypt "$PW"
       rm "$PWFILE"
       echo
       git add -A
@@ -162,19 +201,27 @@ function changemasterpassword() {
    fi
 }
 
-function checkmasterpw() {
-   if [ -f "$PWFILE.gpg" ]; then
-      filedecrypt "echo" 2> /dev/null > /dev/null
-      echo $?
-   else
-      echo 1
+# Delete GIT Repo
+function resetgit() {
+   echo "Wirklich die komplette Versionsverwaltung löschen und neu anlegen?"
+   echo -n "ja oder nein?> "
+   read CHOICE
+   if [ "$CHOICE" == "ja" ]; then
+      echo
+      rm -rf ".git"
+      git init
+      git add -A
+      git commit -m "Versionsverwaltung zurückgesetzt. $(date)"
+      waitforenter
    fi
 }
 
-function checkprogram() {
-   local exist=0
-   type $1 >/dev/null 2>&1 || { local exist=1; }
-   echo "$exist"
+# Show GIT History
+function githistory() {
+   echo "Die letzten 20 Änderungen:"
+   echo
+   PAGER=cat git log --oneline | sort --key=1,7 -r | tail -n 20
+   waitforenter
 }
 
 
@@ -268,6 +315,8 @@ echo "2] Passwörter mit vim bearbeiten"
 echo "3] Passwörter mit nano bearbeiten"
 echo "4] Login Passwort ändern"
 echo "5] Masterkennwort ändern"
+echo "6] Historie der Versionsverwaltung anzeigen"
+echo "7] Versionsverwaltung zurücksetzen"
 echo
 echo "9] Ausloggen"
 echo
@@ -275,6 +324,7 @@ echo
 echo -n "> "
 read INPUT
 
+clear
 case $INPUT in
 
 1)
@@ -295,6 +345,14 @@ case $INPUT in
 
 5)
    changemasterpassword
+   ;;
+   
+6)
+   githistory
+   ;;
+   
+7)
+   resetgit
    ;;
 
 9)
