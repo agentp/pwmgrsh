@@ -229,7 +229,7 @@ function githistory() {
 clear
 echo
 echo "Password Manager Shell (pwmgrsh) by Christian Blechert"
-echo "Letzte Änderung: 2013-08-19"
+echo "Letzte Änderung: 2013-08-21"
 echo "Source Code: https://github.com/agentp/pwmgrsh"
 echo
 echo "Prüfe auf alle benötigten Programme..."
