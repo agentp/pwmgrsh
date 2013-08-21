@@ -7,6 +7,17 @@ Any change will stored in a git repository. Of course only the encrypted data.
 * vim and nano supported
 * Store changes in a git repository
 
+Password Storage
+----------------
+```
+~/.pwmgrsh/
+├── .git
+├── .gitignore
+└── passwords.txt.gpg
+
+1 directory, 2 files
+```
+
 Screenshots
 -----------
 ![Login](/Screenshot-11.png "Login")
