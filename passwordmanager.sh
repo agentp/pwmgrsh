@@ -315,7 +315,7 @@ if [ -f "$PWFILE" ]; then
 fi
 
 # Initialize GIT repo
-if [ ! -d "$PWROOT/.git" ]; then
+if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
    git init
    echo "$PWFILE" > .gitignore
    echo "$TMPPWFILE" >> .gitignore
