@@ -298,13 +298,15 @@ USER=$(id -u -n)
 GROUP=$(id -g -n)
 
 # Set PWROOT
-PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/passwordmanager"
+PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
 PWFILE="$PWROOT/passwords.txt"
 TMPPWFILE="$PWROOT/.temppw"
 
 # Create passwordmanager directory
 if [ ! -d "$PWROOT" ]; then
    mkdir -p "$PWROOT"
+   echo -e "${CPURPLE}Created $PWROOT$CNOCOLOR"
+   echo
 fi
 
 cd "$PWROOT"
@@ -316,11 +318,13 @@ fi
 
 # Initialize GIT repo
 if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
+   echo -e "${CPURPLE}Initialize git repository$CNOCOLOR"
    git init
    echo "$PWFILE" > .gitignore
    echo "$TMPPWFILE" >> .gitignore
    git add -A
    git commit -m "Created git repo and added .gitignore"
+   echo
 fi
 
 # Set permissions
