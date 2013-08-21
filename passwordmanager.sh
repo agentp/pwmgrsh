@@ -1,5 +1,23 @@
 #!/bin/bash
 
+CGRAY="\e[\033[1;30m"
+CLGRAY="\e[\033[1;37m"
+CCYAN="\e[\033[1;36m"
+CLCYAN="\e[\033[1;36m"
+CNOCOLOR="\e[\033[0m"
+CBLUE="\e[\033[1;34m"
+CLBLUE="\e[\033[1;34m"
+CRED="\e[\033[1;31m"
+CLRED="\e[\033[1;31m"
+CGREEN="\e[\033[1;32m"
+CLGREEN="\e[\033[1;32m"
+CPURPLE="\e[\033[1;35m"
+CLPURPLE="\e[\033[1;35m"
+CBROWN="\e[\033[1;33m"
+CYELLOW="\e[\033[1;33m"
+CBLACK="\e[\033[1;30m"
+CWHITE="\e[\033[1;37m"
+
 # Check the given program
 function checkprogram() {
    local exist=0
@@ -8,6 +26,7 @@ function checkprogram() {
 }
 
 # Read a password and show only stars
+# Source http://stackoverflow.com/questions/1923435/how-do-i-echo-stars-when-reading-password-with-read
 function readpassword() {
    unset password
    prompt="$1: "
@@ -23,10 +42,23 @@ function readpassword() {
    echo $password
 }
 
+function banner() {
+   # Source: http://patorjk.com/software/taag/#p=testall&f=Graffiti&t=pwmgrsh
+   echo -e "$CPURPLE                                   _     "
+   echo -e "                                  | |    "
+   echo -e " ____  _ _ _ ____   ____  ____ ___| |__  "
+   echo -e "|  _ \| | | |    \ / _  |/ ___)___)  _ \ "
+   echo -e "| |_| | | | | | | ( (_| | |  |___ | | | |"
+   echo -e "|  __/ \___/|_|_|_|\___ |_|  (___/|_| |_|"
+   echo -e "|_|               (_____|                $CNOCOLOR"
+   echo -e "${CRED}Password Manager Shell by Christian Blechert"
+   echo -e "Source Code: https://github.com/agentp/pwmgrsh$CNOCOLOR"
+}
+
 # Pause the script execution and wait for enter
 function waitforenter() {
    echo
-   echo -n "Enter drücken zum fortfahren... "
+   echo -n -e "${CBLUE}Enter drücken zum fortfahren...$CNOCOLOR "
    read
 }
 
@@ -117,18 +149,18 @@ function checkmasterpw() {
 function showpasswords() {
    clear
    echo
-   echo "Zeige Passwörter an:"
-   echo "----------------------"
+   echo -e "Zeige Passwörter an:"
+   echo -e "${CPURPLE}----------------------$CNOCOLOR"
    echo
 
    if [ -f "$PWFILE.gpg" ]; then
       filedecrypt "$PW" "echo"
    else
-      echo "Keine verschlüsselte Passwortdatei gefunden"
+      echo -e "${CRED}Keine verschlüsselte Passwortdatei gefunden$CNOCOLOR"
    fi
 
    echo
-   echo "----------------------"
+   echo -e "${CPURPLE}----------------------$CNOCOLOR"
    waitforenter
 }
 
@@ -154,16 +186,18 @@ function editpasswords() {
    fileencrypt "$PW"
    rm "$PWFILE"
 
-   clear
-   echo "Änderungen in Versionsverwaltung sichern?"
-   echo -n "ja oder nein?> "
-   read CHOICE
-   if [ "$CHOICE" == "ja" ]; then
-      cd "$PWROOT"
-      echo
-      git add -A
-      git commit -m "Passwortliste bearbeitet $(date)"
-      waitforenter
+   if [ "$GITAVAILABLE" == "1" ]; then
+      clear
+      echo "Änderungen in Versionsverwaltung sichern?"
+      echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
+      read CHOICE
+      if [ "$CHOICE" == "ja" ]; then
+         cd "$PWROOT"
+         echo
+         git add -A
+         git commit -m "Passwortliste bearbeitet $(date)"
+         waitforenter
+      fi
    fi
 }
 
@@ -189,9 +223,11 @@ function changemasterpassword() {
       PW="$TMPPWA"
       fileencrypt "$PW"
       rm "$PWFILE"
-      echo
-      git add -A
-      git commit -m "Masterkennwort geändert! $(date)"
+      if [ "$GITAVAILABLE" == "1" ]; then
+         echo
+         git add -A
+         git commit -m "Masterkennwort geändert! $(date)"
+      fi
       echo
       echo "Masterkennwort erfolgreich geändert!"
       waitforenter
@@ -204,7 +240,7 @@ function changemasterpassword() {
 # Delete GIT Repo
 function resetgit() {
    echo "Wirklich die komplette Versionsverwaltung löschen und neu anlegen?"
-   echo -n "ja oder nein?> "
+   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
    read CHOICE
    if [ "$CHOICE" == "ja" ]; then
       echo
@@ -227,27 +263,30 @@ function githistory() {
 
 
 clear
-echo
-echo "Password Manager Shell (pwmgrsh) by Christian Blechert"
-echo "Letzte Änderung: 2013-08-21"
-echo "Source Code: https://github.com/agentp/pwmgrsh"
+banner
 echo
 echo "Prüfe auf alle benötigten Programme..."
 ERROR=0
-for PROG in gpg vim cat chown chmod git nano read;
+GITAVAILABLE=1
+for PROG in gpg vim cat chown chmod git nano read rm;
 do
    echo -n "Programm $PROG "
    if [ ! "$(checkprogram "$PROG")" == "0" ]; then
-      ERROR=1
-      echo "nicht gefunden!"
+      if [ ! "$PROG" == "git" ]; then
+         ERROR=1
+         echo -e "${CRED}nicht gefunden!$CNOCOLOR"
+      else
+         echo -e "${CRED}nicht gefunden!$CNOCOLOR (optional)"
+         GITAVAILABLE=0
+      fi
    else
-      echo "gefunden!"
+      echo -e "${CGREEN}gefunden!$CNOCOLOR"
    fi
 done;
 echo
 
 if [ "$ERROR" == "1" ]; then
-   echo "Einige Programme wurden nicht gefunden! Bitte nachinstallieren!"
+   echo -e "${CRED}Einige Programme wurden nicht gefunden! Bitte nachinstallieren!$CNOCOLOR"
    waitforenter
    exit 1
 fi
@@ -308,20 +347,24 @@ fi
 while true; do
 
 clear
+banner
+echo
 echo "Was möchtest Du machen?"
 echo
-echo "1] Passwörter anzeigen"
-echo "2] Passwörter mit vim bearbeiten"
-echo "3] Passwörter mit nano bearbeiten"
-echo "4] Login Passwort ändern"
-echo "5] Masterkennwort ändern"
-echo "6] Historie der Versionsverwaltung anzeigen"
-echo "7] Versionsverwaltung zurücksetzen"
+echo -e "${CPURPLE}1]$CNOCOLOR Passwörter anzeigen"
+echo -e "${CPURPLE}2]$CNOCOLOR Passwörter mit vim bearbeiten"
+echo -e "${CPURPLE}3]$CNOCOLOR Passwörter mit nano bearbeiten"
+echo -e "${CPURPLE}4]$CNOCOLOR Login Passwort ändern"
+echo -e "${CPURPLE}5]$CNOCOLOR Masterkennwort ändern"
+if [ "$GITAVAILABLE" == "1" ]; then
+   echo -e "${CPURPLE}6]$CNOCOLOR Historie der Versionsverwaltung anzeigen"
+   echo -e "${CPURPLE}7]$CNOCOLOR Versionsverwaltung zurücksetzen"
+fi
 echo
-echo "9] Ausloggen"
+echo -e "${CPURPLE}9]$CNOCOLOR Ausloggen"
 echo
 
-echo -n "> "
+echo -n -e "${CPURPLE}>$CNOCOLOR "
 read INPUT
 
 clear
@@ -348,11 +391,11 @@ case $INPUT in
    ;;
    
 6)
-   githistory
+   if [ "$GITAVAILABLE" == "1" ]; then githistory; fi
    ;;
    
 7)
-   resetgit
+   if [ "$GITAVAILABLE" == "1" ]; then resetgit; fi
    ;;
 
 9)
