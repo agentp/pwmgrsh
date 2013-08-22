@@ -42,6 +42,16 @@ function readpassword() {
    echo $password
 }
 
+function yesno() {
+   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
+   read CHOICE
+   if [ "$CHOICE" == "ja" ]; then
+      return 0
+   else
+      return 1
+   fi
+}
+
 function banner() {
    # Source: http://patorjk.com/software/taag/#p=testall&f=Graffiti&t=pwmgrsh
    echo -e "$CPURPLE                                    _     "
@@ -189,9 +199,8 @@ function editpasswords() {
    if [ "$GITAVAILABLE" == "1" ]; then
       clear
       echo "Änderungen in Versionsverwaltung sichern?"
-      echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
-      read CHOICE
-      if [ "$CHOICE" == "ja" ]; then
+      yesno
+      if [ "$?" == "0" ]; then
          cd "$PWROOT"
          echo
          git add -A
@@ -240,9 +249,8 @@ function changemasterpassword() {
 # Delete GIT Repo
 function resetgit() {
    echo "Wirklich die komplette Versionsverwaltung löschen und neu anlegen?"
-   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
-   read CHOICE
-   if [ "$CHOICE" == "ja" ]; then
+   yesno
+   if [ "$?" == "0" ]; then
       echo
       rm -rf ".git"
       git init
@@ -284,9 +292,8 @@ function installpwmgrsh() {
    fi   
    echo
    echo "Fortfahren?"
-   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
-   read CHOICE
-   if [ "$CHOICE" == "ja" ]; then
+   yesno
+   if [ "$?" == "0" ]; then
       if [ "$(isinstalled)" == "1" ]; then
          rm "$BINLINK"
          chown $USER:$GROUP "$SCRIPT"
@@ -311,7 +318,7 @@ echo
 echo "Prüfe auf alle benötigten Programme..."
 ERROR=0
 GITAVAILABLE=1
-for PROG in gpg vim cat chown chmod git nano read rm;
+for PROG in gpg vim cat chown chmod git nano read rm readlink dirname basename;
 do
    echo -n "Programm $PROG "
    if [ ! "$(checkprogram "$PROG")" == "0" ]; then
@@ -352,8 +359,18 @@ TMPPWFILE="$PWROOT/.temppw"
 
 # Create passwordmanager directory
 if [ ! -d "$PWROOT" ]; then
+   echo -e "Es muss ein Ordner zur Speicherung der verschlüsselten Daten angelegt werden."
+   echo -e "Speicherort: ${CPURPLE}$PWROOT$CNOCOLOR"
+   echo
+   echo "Fortfahren?"
+   yesno
+   if [ "$?" == "1" ]; then
+      echo "Programm wird beendet."
+      waitforenter
+      exit 1
+   fi
    mkdir -p "$PWROOT"
-   echo -e "${CPURPLE}Created $PWROOT$CNOCOLOR"
+   echo -e "${CPURPLE}Erstelle $PWROOT$CNOCOLOR"
    echo
 fi
 
