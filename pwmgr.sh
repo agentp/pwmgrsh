@@ -260,6 +260,49 @@ function githistory() {
    waitforenter
 }
 
+function isinstalled() {
+   if [ -L "$BINLINK" ]; then
+      echo 1
+   else
+      echo 0
+   fi
+}
+
+# Install in system
+function installpwmgrsh() {
+   if [ "$(isinstalled)" == "1" ]; then
+      echo -e "pwmgrsh ist unter ${CRED}$BINLINK$CNOCOLOR im System installiert."
+      echo "Somit können alle Benutzer auf den Passwortmanager"
+      echo -e "mit dem Befehl ${CRED}$(basename "$BINLINK")$CNOCOLOR zugreifen und ihn nutzen."
+      echo
+      echo "Möchtest Du die Installation rückgängig machen?"
+   else
+      echo "pwmgrsh ist nicht im System installiert."
+      echo -e "Bei einer Installation wird ein symlink unter ${CRED}$BINLINK$CNOCOLOR angelegt."
+      echo
+      echo -e "Der Passwortmanager wird dann für alle Benutzer mit dem Befehl ${CRED}$(basename "$BINLINK")$CNOCOLOR nutzbar sein."
+   fi   
+   echo
+   echo "Fortfahren?"
+   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
+   read CHOICE
+   if [ "$CHOICE" == "ja" ]; then
+      if [ "$(isinstalled)" == "1" ]; then
+         rm "$BINLINK"
+         chown $USER:$GROUP "$SCRIPT"
+         chmod u=rwx,go=- "$SCRIPT"
+         echo "Symlink wurde entfernt und die Benutzerrechte auf dieses Script auf dich allein beschränkt."
+      else
+         ln -s "$SCRIPT" "$BINLINK"
+         chown $USER:$GROUP "$SCRIPT"
+         chmod u=rwx,go=rx "$SCRIPT"
+         echo "Symlink wurde angelegt und die Rechte auf dieses Script so verändert, dass alle darauf zugreifen können."
+         echo -e "Mit dem Befehl ${CRED}$(basename "$BINLINK")$CNOCOLOR kann pwmgrsh nun aufgerufen werden."
+      fi
+      waitforenter
+   fi
+}
+
 
 
 clear
@@ -292,6 +335,11 @@ if [ "$ERROR" == "1" ]; then
 fi
 
 
+
+# Get script location
+SCRIPT=$(readlink -f "$0")
+SCRIPTDIR=$(dirname "$SCRIPT")
+BINLINK="/usr/bin/pwmgrsh"
 
 # Get User Info
 USER=$(id -u -n)
@@ -364,6 +412,11 @@ if [ "$GITAVAILABLE" == "1" ]; then
    echo -e "${CPURPLE}6]$CNOCOLOR Historie der Versionsverwaltung anzeigen"
    echo -e "${CPURPLE}7]$CNOCOLOR Versionsverwaltung zurücksetzen"
 fi
+if [ "$USER" == "root" ] && [ "$(isinstalled)" == "1" ]; then
+   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh deinstallieren"
+elif [ "$USER" == "root" ] && [ "$(isinstalled)" == "0" ]; then
+   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh installieren"
+fi
 echo
 echo -e "${CPURPLE}9]$CNOCOLOR Ausloggen"
 echo
@@ -395,11 +448,15 @@ case $INPUT in
    ;;
    
 6)
-   if [ "$GITAVAILABLE" == "1" ]; then githistory; fi
+   if [ "$GITAVAILABLE" == "1" ]; then githistory; else unknownoption; fi
    ;;
    
 7)
-   if [ "$GITAVAILABLE" == "1" ]; then resetgit; fi
+   if [ "$GITAVAILABLE" == "1" ]; then resetgit; else unknownoption; fi
+   ;;
+
+8)
+   if [ "$USER" == "root" ]; then installpwmgrsh; else unknownoption; fi
    ;;
 
 9)
