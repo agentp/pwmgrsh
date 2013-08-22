@@ -394,20 +394,45 @@ fi
 
 # Set permissions
 chown -R $USER:$GROUP "$PWROOT"
-chmod u=rwx,go=- "$PWROOT"
+chmod -R u=rwx,go=- "$PWROOT"
 
-# Enter masterpw
-PW=$(readpassword "Bitte Masterkennwort eingeben")
-RESULT=$(checkmasterpw "$PW")
+# Password file exist, enter masterpw
+if [ -f "$PWFILE.gpg" ]; then
 
-# Check MasterPW
-if [ "$RESULT" == "2" ]; then
-   echo
-   echo
-   echo "Masterpasswort ist nicht korrekt!"
-   echo "Verbindung wird beendet!"
-   waitforenter
-   exit 1
+   # Enter masterpw
+   PW=$(readpassword "Bitte Masterkennwort eingeben")
+   RESULT=$(checkmasterpw "$PW")
+
+   # Check MasterPW
+   if [ "$RESULT" == "2" ]; then
+      echo
+      echo
+      echo "Masterpasswort ist nicht korrekt!"
+      echo "Verbindung wird beendet!"
+      waitforenter
+      exit 1
+   fi
+
+# No password file exist, enter new masterpw
+else
+   while true; do
+
+      TMPPWA=$(readpassword "Neues Masterkennwort eingeben")
+      echo
+      TMPPWB=$(readpassword "Neues Masterkennwort wiederholen")
+      echo
+      echo
+      if [ "$TMPPWA" == "$TMPPWB" ]; then
+         PW="$TMPPWA"
+         echo "Neues Masterkennwort wurde festgelegt."
+         waitforenter
+         break
+      else
+         echo "Die Passwörter stimmen nicht überein!"
+         echo
+      fi
+
+   done;
 fi
 
 
