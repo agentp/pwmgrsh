@@ -43,7 +43,7 @@ function readpassword() {
 }
 
 function yesno() {
-   echo -e -n "${CBLUE}ja oder nein?>$CNOCOLOR "
+   echo -e -n "${CPURPLE}ja oder nein?>$CNOCOLOR "
    read CHOICE
    if [ "$CHOICE" == "ja" ]; then
       return 0
@@ -62,13 +62,14 @@ function banner() {
    echo -e " |  __/ \___/|_|_|_|\___ |_|  (___/|_| |_|"
    echo -e " |_|               (_____|                $CNOCOLOR"
    echo -e "${CRED}Password Manager Shell by Christian Blechert"
-   echo -e "Source Code: https://github.com/agentp/pwmgrsh$CNOCOLOR"
+   echo -e "Source Code: https://github.com/agentp/pwmgrsh"
+   echo -e "Aktive Passwort Datei:$CNOCOLOR $(basename "$PWFILE" | sed 's/\.txt$//g')"
 }
 
 # Pause the script execution and wait for enter
 function waitforenter() {
    echo
-   echo -n -e "${CBLUE}Enter drücken zum fortfahren...$CNOCOLOR "
+   echo -n -e "${CPURPLE}Enter drücken zum fortfahren...$CNOCOLOR "
    read
 }
 
@@ -77,7 +78,7 @@ function unknownoption() {
    clear
    echo
    echo "Ungültige Option"
-   waitforenter
+   sleep 1
 }
 
 # Change the Linux password
@@ -92,11 +93,13 @@ function changepassword() {
 
 # Pipe the GPG password in a file and protect the file
 function createpwfile() {
+   local apwd="$1"   
+   
    killpwfile
    touch "$TMPPWFILE"
    chown $USER:$GROUP "$TMPPWFILE"
-   chmod u=rwx,go=- "$TMPPWFILE"
-   echo -n "$1" > "$TMPPWFILE"
+   chmod u=rw,go=- "$TMPPWFILE"
+   echo -n "$apwd" > "$TMPPWFILE"
 }
 
 # Delete the password file
@@ -108,20 +111,25 @@ function killpwfile() {
 
 # Protect the files
 function setpwfilepermissions() {
-   if [ -f "$PWFILE" ]; then
+   local apwfile="$1"
+
+   if [ -f "$apwfile" ]; then
       chown $USER:$GROUP "$PWFILE"
-      chmod u=rwx,go=- "$PWFILE"
+      chmod u=rw,go=- "$apwfile"
    fi
-   if [ -f "$PWFILE.gpg" ]; then
-      chown $USER:$GROUP "$PWFILE.gpg"
-      chmod u=rwx,go=- "$PWFILE.gpg"
+   if [ -f "$apwfile.gpg" ]; then
+      chown $USER:$GROUP "$apwfile.gpg"
+      chmod u=rw,go=- "$apwfile.gpg"
    fi
 }
 
 # Encrypt the password list
 function fileencrypt() {
-   createpwfile "$1"
-   gpg -q --batch --yes --passphrase-fd 0 -c "$PWFILE" < "$TMPPWFILE" 2> /dev/null
+   local apwd="$1"
+   local apwfile="$2"
+
+   createpwfile "$apwd"
+   gpg -q --batch --yes --passphrase-fd 0 -c "$apwfile" < "$TMPPWFILE" 2> /dev/null
    local RES=$?
    killpwfile
    setpwfilepermissions
@@ -130,25 +138,32 @@ function fileencrypt() {
 
 # Decrypt the password list
 function filedecrypt() {
-   createpwfile "$1"
+   local apwd="$1"
+   local aaction="$2"
+   local apwfile="$3"
+
+   createpwfile "$apwd"
    local RES=9
-   if [ "$2" == "echo" ]; then
-      gpg -q --batch --yes --output - --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
+   if [ "$aaction" == "echo" ]; then
+      gpg -q --batch --yes --output - --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null
       RES=$?
    else
-      gpg -q --batch --yes --passphrase-fd 0 "$PWFILE.gpg" < "$TMPPWFILE" 2> /dev/null
+      gpg -q --batch --yes --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null
       RES=$?
    fi
    
    killpwfile
-   setpwfilepermissions
+   setpwfilepermissions "$apwfile"
    return $RES
 }
 
 # Check GPG password is correct
 function checkmasterpw() {
-   if [ -f "$PWFILE.gpg" ]; then
-      filedecrypt "$1" "echo" 2> /dev/null > /dev/null
+   local apwd="$1"
+   local apwfile="$2"
+
+   if [ -f "$apwfile.gpg" ]; then
+      filedecrypt "$apwd" "echo" "$apwfile" 2> /dev/null > /dev/null
       echo $?
    else
       echo 1
@@ -157,14 +172,17 @@ function checkmasterpw() {
 
 # Display the password list
 function showpasswords() {
+   local apwd="$1"
+   local apwfile="$2"
+
    clear
    echo
    echo -e "Zeige Passwörter an:"
    echo -e "${CPURPLE}----------------------$CNOCOLOR"
    echo
 
-   if [ -f "$PWFILE.gpg" ]; then
-      filedecrypt "$PW" "echo"
+   if [ -f "$apwfile.gpg" ]; then
+      filedecrypt "$apwd" "echo" "$apwfile"
    else
       echo -e "${CRED}Keine verschlüsselte Passwortdatei gefunden$CNOCOLOR"
    fi
@@ -177,6 +195,9 @@ function showpasswords() {
 # Edit the password list
 function editpasswords() {
    local ED="$1"
+   local apwd="$2"
+   local apwfile="$3"
+   
    echo "$1 ist ein Editor der nur mit der Tastatur bedient wird."
    if [ "$1" == "vim" ]; then
       echo "Zum einfügen von Text muss in den Einfügen-Modus mit der Taste 'i' gewechselt werden."
@@ -191,10 +212,10 @@ function editpasswords() {
 
    waitforenter
 
-   filedecrypt "$PW"
-   $ED "$PWFILE"
-   fileencrypt "$PW"
-   rm "$PWFILE"
+   filedecrypt "$apwd" "file" "$apwfile"
+   $ED "$apwfile"
+   fileencrypt "$apwd" "$apwfile"
+   rm "$apwfile"
 
    if [ "$GITAVAILABLE" == "1" ]; then
       clear
@@ -212,6 +233,8 @@ function editpasswords() {
 
 # Change the GPG password
 function changemasterpassword() {
+   local apwfile="$1"
+
    local OLDPW=$(readpassword "Aktuelles Masterkennwort eingeben")
    local AKTPWRES=$(checkmasterpw "$OLDPW")
    
@@ -228,10 +251,10 @@ function changemasterpassword() {
    echo
 
    if [ "$TMPPWA" == "$TMPPWB" ]; then
-      filedecrypt "$PW"
+      filedecrypt "$OLDPW" "file" "$apwfile"
       PW="$TMPPWA"
-      fileencrypt "$PW"
-      rm "$PWFILE"
+      fileencrypt "$TMPPWA" "$apwfile"
+      rm "$apwfile"
       if [ "$GITAVAILABLE" == "1" ]; then
          echo
          git add -A
@@ -310,6 +333,102 @@ function installpwmgrsh() {
    fi
 }
 
+# Change the password file
+function changefile() {
+   local currfile="$(basename "$PWFILE" | sed 's/\.txt$//g')"
+   banner
+   echo
+   echo -e "Datei auswählen:"
+   echo
+   
+   while IFS= read -r line
+   do
+      local linefile="$(basename "$line" | sed 's/\.txt\.gpg$//g')"
+   
+      echo -n "["
+      if [ "$currfile" == "$linefile" ]; then
+         echo -n -e "${CRED}x$CNOCOLOR"
+      else
+         echo -n " "
+      fi
+      echo -n "] "
+      echo -e "${CGREEN}$linefile$CNOCOLOR"
+   done <<< "$(ls -1)"
+   
+   echo
+   echo -n -e "${CPURPLE}>$CNOCOLOR "
+   read INPUT
+   
+   if [ "$INPUT" == "" ]; then
+      return
+   fi
+   
+   local targetfile="$PWROOT/$(echo $INPUT | sed 's/[^A-Za-z0-9]/_/g').txt"
+   echo
+   
+   if [ ! -f "$targetfile.gpg" ]; then
+
+      echo "Neue Passwort Datei erstellen?"
+      yesno
+      if [ ! "$?" == "0" ]; then
+         return;
+      fi
+      echo
+      
+      local TMPPWA=$(readpassword "Masterkennwort für neue Datei eingeben")
+      echo
+      local TMPPWB=$(readpassword "Masterkennwort für neue Datei wiederholen")
+      echo
+
+      if [ "$TMPPWA" == "$TMPPWB" ]; then
+         PWFILE="$targetfile"
+         PW="$TMPPWA"
+      else
+         echo
+         echo "Passwörter stimmen nicht überein!"
+         waitforenter
+      fi
+
+   else
+   
+      CRESULT=$(checkmasterpw "$PW" "$targetfile")
+      if [ "$CRESULT" == "2" ]; then
+         local NEWPW=$(readpassword "Masterkennwort für '$INPUT' eingeben")
+         echo
+      
+         RESULT=$(checkmasterpw "$NEWPW" "$targetfile")
+         if [ "$RESULT" == "2" ]; then
+            echo "Masterkennwort nicht korrekt!"
+            echo "Dateiwechsel abgebrochen."
+            waitforenter
+         else
+            PWFILE="$targetfile"
+            PW="$NEWPW"
+         fi
+      else
+         PWFILE="$targetfile"
+      fi
+   
+   fi
+
+}
+
+
+
+# Get script location
+SCRIPT=$(readlink -f "$0")
+SCRIPTDIR=$(dirname "$SCRIPT")
+BINLINK="/usr/bin/pwmgrsh"
+
+# Get User Info
+USER=$(id -u -n)
+GROUP=$(id -g -n)
+
+# Set PWROOT
+PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
+PWFILE="$PWROOT/passwords.txt"
+TMPPWFILE="$PWROOT/.temppw.$$"
+
 
 
 clear
@@ -335,27 +454,20 @@ do
 done;
 echo
 
-if [ "$ERROR" == "1" ]; then
+if [ "$ERROR" == "1" ] || [ "$GITAVAILABLE" == "0" ]; then
    echo -e "${CRED}Einige Programme wurden nicht gefunden! Bitte nachinstallieren!$CNOCOLOR"
    waitforenter
+fi
+
+if [ "$ERROR" == "1" ]; then
    exit 1
 fi
 
+clear
+banner
+echo
 
 
-# Get script location
-SCRIPT=$(readlink -f "$0")
-SCRIPTDIR=$(dirname "$SCRIPT")
-BINLINK="/usr/bin/pwmgrsh"
-
-# Get User Info
-USER=$(id -u -n)
-GROUP=$(id -g -n)
-
-# Set PWROOT
-PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
-PWFILE="$PWROOT/passwords.txt"
-TMPPWFILE="$PWROOT/.temppw"
 
 # Create passwordmanager directory
 if [ ! -d "$PWROOT" ]; then
@@ -401,7 +513,7 @@ if [ -f "$PWFILE.gpg" ]; then
 
    # Enter masterpw
    PW=$(readpassword "Bitte Masterkennwort eingeben")
-   RESULT=$(checkmasterpw "$PW")
+   RESULT=$(checkmasterpw "$PW" "$PWFILE")
 
    # Check MasterPW
    if [ "$RESULT" == "2" ]; then
@@ -445,22 +557,23 @@ banner
 echo
 echo "Was möchtest Du machen?"
 echo
-echo -e "${CPURPLE}1]$CNOCOLOR Passwörter anzeigen"
-echo -e "${CPURPLE}2]$CNOCOLOR Passwörter mit vim bearbeiten"
-echo -e "${CPURPLE}3]$CNOCOLOR Passwörter mit nano bearbeiten"
-echo -e "${CPURPLE}4]$CNOCOLOR Login Passwort ändern"
-echo -e "${CPURPLE}5]$CNOCOLOR Masterkennwort ändern"
+echo -e "${CPURPLE}1]$CNOCOLOR Passwortdatei wechseln"
+echo -e "${CPURPLE}2]$CNOCOLOR Passwörter anzeigen"
+echo -e "${CPURPLE}3]$CNOCOLOR Passwörter mit vim bearbeiten"
+echo -e "${CPURPLE}4]$CNOCOLOR Passwörter mit nano bearbeiten"
+echo -e "${CPURPLE}5]$CNOCOLOR Login Passwort ändern"
+echo -e "${CPURPLE}6]$CNOCOLOR Masterkennwort ändern"
 if [ "$GITAVAILABLE" == "1" ]; then
-   echo -e "${CPURPLE}6]$CNOCOLOR Historie der Versionsverwaltung anzeigen"
-   echo -e "${CPURPLE}7]$CNOCOLOR Versionsverwaltung zurücksetzen"
+   echo -e "${CPURPLE}7]$CNOCOLOR Historie der Versionsverwaltung anzeigen"
+   echo -e "${CPURPLE}8]$CNOCOLOR Versionsverwaltung zurücksetzen"
 fi
 if [ "$USER" == "root" ] && [ "$(isinstalled)" == "1" ]; then
-   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh deinstallieren"
+   echo -e "${CPURPLE}9]$CNOCOLOR pwmgrsh deinstallieren"
 elif [ "$USER" == "root" ] && [ "$(isinstalled)" == "0" ]; then
-   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh installieren"
+   echo -e "${CPURPLE}9]$CNOCOLOR pwmgrsh installieren"
 fi
 echo
-echo -e "${CPURPLE}9]$CNOCOLOR Ausloggen"
+echo -e "${CPURPLE}0]$CNOCOLOR Ausloggen"
 echo
 
 echo -n -e "${CPURPLE}>$CNOCOLOR "
@@ -470,41 +583,35 @@ clear
 case $INPUT in
 
 1)
-   showpasswords
+   changefile
    ;;
-
 2)
-   editpasswords vim
+   showpasswords "$PW" "$PWFILE"
    ;;
-
 3)
-   editpasswords nano
+   editpasswords vim "$PW" "$PWFILE"
    ;;
-
 4)
+   editpasswords nano "$PW" "$PWFILE"
+   ;;
+5)
    changepassword
    ;;
-
-5)
-   changemasterpassword
-   ;;
-   
 6)
+   changemasterpassword "$PWFILE"
+   ;;
+7)
    if [ "$GITAVAILABLE" == "1" ]; then githistory; else unknownoption; fi
    ;;
-   
-7)
+8)
    if [ "$GITAVAILABLE" == "1" ]; then resetgit; else unknownoption; fi
    ;;
-
-8)
+9)
    if [ "$USER" == "root" ]; then installpwmgrsh; else unknownoption; fi
    ;;
-
-9)
+0)
    break;
    ;;
-
 *)
    unknownoption
    ;;
