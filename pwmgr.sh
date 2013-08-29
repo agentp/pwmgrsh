@@ -636,7 +636,7 @@ if [ "$USER" == "root" ] && [ "$(isinstalled)" == "1" ]; then
 elif [ "$USER" == "root" ] && [ "$(isinstalled)" == "0" ]; then
    echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh installieren"
 fi
-echo -e "${CPURPLE}9]$CNOCOLOR Zurücksetzen"
+echo -e "${CPURPLE}9]$CNOCOLOR Löschen / Zurücksetzen"
 echo
 echo -e "${CPURPLE}0]$CNOCOLOR Ausloggen"
 echo
