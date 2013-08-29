@@ -13,10 +13,36 @@ Password Storage
 ~/.pwmgrsh/
 ├── .git
 ├── .gitignore
+├── hosting.txt.gpg
 └── passwords.txt.gpg
 
-1 directory, 2 files
+1 directory, 3 files
 ```
+
+Installation
+------------
+Simple clone the repo from github:
+```
+git clone https://github.com/agentp/pwmgrsh.git
+cd pwmgrsh
+chmod a+x pwmgr.sh
+./pwmgr.sh
+```
+For a global installation use as root the option in pwmgrsh menu.
+
+Update
+------
+Simple update the repo from github:
+```
+cd pwmgrsh
+git pull
+```
+
+Uninstall
+---------
+- Use the option in pwmgrsh as root
+- Remove the pwmgrsh folder
+- Remove all .prmgrsh folders in user homes
 
 Screenshots
 -----------
