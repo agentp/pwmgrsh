@@ -390,6 +390,8 @@ function changefile() {
       if [ "$TMPPWA" == "$TMPPWB" ]; then
          PWFILE="$targetfile"
          PW="$TMPPWA"
+         touch "Neue Datei, erstellt am $(date)" > $PWFILE
+         fileencrypt "$PW" "$PWFILE"
       else
          echo
          echo "Passwörter stimmen nicht überein!"
