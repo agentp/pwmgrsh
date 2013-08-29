@@ -514,6 +514,12 @@ fi
 # Initialize GIT repo
 if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
    echo -e "${CPURPLE}Initialize git repository$CNOCOLOR"
+
+   if [ ! -f "$HOME/.gitconfig" ]; then
+      git config --global user.email "$USER@localhost"
+      git config --global user.name "$USER"
+   fi
+
    git init
    echo "$PWFILE" > .gitignore
    echo "$TMPPWFILE" >> .gitignore
