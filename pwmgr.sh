@@ -335,43 +335,50 @@ function installpwmgrsh() {
 
 # Change the password file
 function changefile() {
+   local apwdfile="$(basename "$1" | sed 's/\.gpg$//g' | sed 's/\.txt$//g')"
    local currfile="$(basename "$PWFILE" | sed 's/\.txt$//g')"
+
+   clear
    banner
    echo
-   echo -e "Datei auswählen:"
-   echo
+   if [ "$apwdfile" == "" ]; then
+      echo -e "Datei auswählen:"
+      echo
    
-   while IFS= read -r line
-   do
-      local linefile="$(basename "$line" | sed 's/\.txt\.gpg$//g')"
+      while IFS= read -r line
+      do
+         local linefile="$(basename "$line" | sed 's/\.txt\.gpg$//g')"
    
-      echo -n "["
-      if [ "$currfile" == "$linefile" ]; then
-         echo -n -e "${CRED}x$CNOCOLOR"
-      else
-         echo -n " "
+         echo -n "["
+         if [ "$currfile" == "$linefile" ]; then
+            echo -n -e "${CRED}x$CNOCOLOR"
+         else
+            echo -n " "
+         fi
+         echo -n "] "
+         echo -e "${CGREEN}$linefile$CNOCOLOR"
+      done <<< "$(ls -1)"
+   
+      echo
+      echo -n -e "${CPURPLE}>$CNOCOLOR "
+      read INPUT
+   
+      if [ "$INPUT" == "" ]; then
+         return 1
       fi
-      echo -n "] "
-      echo -e "${CGREEN}$linefile$CNOCOLOR"
-   done <<< "$(ls -1)"
    
-   echo
-   echo -n -e "${CPURPLE}>$CNOCOLOR "
-   read INPUT
-   
-   if [ "$INPUT" == "" ]; then
-      return
+      local targetfile="$PWROOT/$(echo $INPUT | sed 's/[^A-Za-z0-9]/_/g').txt"
+      echo
+   else
+      local targetfile="$PWROOT/$apwdfile.txt"
    fi
-   
-   local targetfile="$PWROOT/$(echo $INPUT | sed 's/[^A-Za-z0-9]/_/g').txt"
-   echo
    
    if [ ! -f "$targetfile.gpg" ]; then
 
       echo "Neue Passwort Datei erstellen?"
       yesno
       if [ ! "$?" == "0" ]; then
-         return;
+         return 1;
       fi
       echo
       
@@ -387,13 +394,14 @@ function changefile() {
          echo
          echo "Passwörter stimmen nicht überein!"
          waitforenter
+         return 2
       fi
 
    else
    
       CRESULT=$(checkmasterpw "$PW" "$targetfile")
       if [ "$CRESULT" == "2" ]; then
-         local NEWPW=$(readpassword "Masterkennwort für '$INPUT' eingeben")
+         local NEWPW=$(readpassword "Masterkennwort für '$(basename "$targetfile" | sed 's/\.txt$//g')' eingeben")
          echo
       
          RESULT=$(checkmasterpw "$NEWPW" "$targetfile")
@@ -401,6 +409,7 @@ function changefile() {
             echo "Masterkennwort nicht korrekt!"
             echo "Dateiwechsel abgebrochen."
             waitforenter
+            return 3
          else
             PWFILE="$targetfile"
             PW="$NEWPW"
@@ -411,6 +420,7 @@ function changefile() {
    
    fi
 
+   return 0
 }
 
 
@@ -425,9 +435,14 @@ USER=$(id -u -n)
 GROUP=$(id -g -n)
 
 # Set PWROOT
+TMPPWFILE="$PWROOT/.temppw.$$"
 PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
 PWFILE="$PWROOT/passwords.txt"
-TMPPWFILE="$PWROOT/.temppw.$$"
+
+# Select first pwfile if passwords.txt.gpg not exist
+if [ ! -f "$PWFILE.gpg" ] && [ "$(ls -1 "$PWROOT" | wc -l)" -gt 0 ]; then
+   PWFILE="$PWROOT/$(ls -1 "$PWROOT" | head -n 1 | sed 's/\.gpg$//g')"
+fi
 
 
 
@@ -508,43 +523,23 @@ fi
 chown -R $USER:$GROUP "$PWROOT"
 chmod -R u=rwx,go=- "$PWROOT"
 
-# Password file exist, enter masterpw
-if [ -f "$PWFILE.gpg" ]; then
+# Enter master password
+changefile "$PWFILE"
+RESULT=$?
 
-   # Enter masterpw
-   PW=$(readpassword "Bitte Masterkennwort eingeben")
-   RESULT=$(checkmasterpw "$PW" "$PWFILE")
+echo
+if [ "$RESULT" == "1" ]; then
+   echo "Aktionen abgebrochen."
+elif [ "$RESULT" == "2" ]; then
+   echo "Masterkennwörter stimmen nicht überein!"
+elif [ "$RESULT" == "3" ]; then
+   echo "Masterkennwort ist nicht korrekt!"
+fi
 
-   # Check MasterPW
-   if [ "$RESULT" == "2" ]; then
-      echo
-      echo
-      echo "Masterpasswort ist nicht korrekt!"
-      echo "Verbindung wird beendet!"
-      waitforenter
-      exit 1
-   fi
-
-# No password file exist, enter new masterpw
-else
-   while true; do
-
-      TMPPWA=$(readpassword "Neues Masterkennwort eingeben")
-      echo
-      TMPPWB=$(readpassword "Neues Masterkennwort wiederholen")
-      echo
-      echo
-      if [ "$TMPPWA" == "$TMPPWB" ]; then
-         PW="$TMPPWA"
-         echo "Neues Masterkennwort wurde festgelegt."
-         waitforenter
-         break
-      else
-         echo "Die Passwörter stimmen nicht überein!"
-         echo
-      fi
-
-   done;
+if [ ! "$RESULT" == "0" ]; then
+   echo "Verbindug wird beendet!"
+   waitforenter
+   exit 1
 fi
 
 
