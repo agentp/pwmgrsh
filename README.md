@@ -50,3 +50,5 @@ Screenshots
 ![Login](/Screenshot-11.png "Login")
 
 ![Mainmenu](/Screenshot-12.png "Mainmenu")
+
+![Select file](/Screenshot-13.png "Select file")
