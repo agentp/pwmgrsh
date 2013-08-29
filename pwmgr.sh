@@ -438,8 +438,8 @@ USER=$(id -u -n)
 GROUP=$(id -g -n)
 
 # Set PWROOT
-TMPPWFILE="$PWROOT/.temppw.$$"
 PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
+TMPPWFILE="$PWROOT/.temppw.$$"
 PWFILE="$PWROOT/passwords.txt"
 
 # Select first pwfile if passwords.txt.gpg not exist
