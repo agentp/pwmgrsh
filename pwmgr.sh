@@ -333,31 +333,36 @@ function installpwmgrsh() {
    fi
 }
 
+# List pwfiles
+function listfiles() {
+   while IFS= read -r line
+   do
+      local linefile="$(basename "$line" | sed 's/\.txt\.gpg$//g')"
+
+      echo -n "["
+      if [ "$(basename "$PWFILE" | sed 's/\.txt$//g')" == "$linefile" ]; then
+         echo -n -e "${CRED}x$CNOCOLOR"
+      else
+         echo -n " "
+      fi
+      echo -n "] "
+      echo -e "${CGREEN}$linefile$CNOCOLOR"
+   done <<< "$(ls -1)"
+}
+
+function filescount() {
+   ls -1 | wc -l
+}
+
 # Change the password file
 function changefile() {
    local apwdfile="$(basename "$1" | sed 's/\.gpg$//g' | sed 's/\.txt$//g')"
-   local currfile="$(basename "$PWFILE" | sed 's/\.txt$//g')"
 
-   clear
-   banner
-   echo
    if [ "$apwdfile" == "" ]; then
       echo -e "Datei auswählen:"
       echo
    
-      while IFS= read -r line
-      do
-         local linefile="$(basename "$line" | sed 's/\.txt\.gpg$//g')"
-   
-         echo -n "["
-         if [ "$currfile" == "$linefile" ]; then
-            echo -n -e "${CRED}x$CNOCOLOR"
-         else
-            echo -n " "
-         fi
-         echo -n "] "
-         echo -e "${CGREEN}$linefile$CNOCOLOR"
-      done <<< "$(ls -1)"
+      listfiles
    
       echo
       echo -n -e "${CPURPLE}>$CNOCOLOR "
@@ -424,6 +429,54 @@ function changefile() {
    fi
 
    return 0
+}
+
+# Reset pwmgr
+function resetpwmgr() {
+
+   if [ "$(filescount)" -gt "0" ]; then
+      
+      echo "Hier können die Passwort Dateien oder die Versionsverwaltung"
+      echo "gelöscht werden. Wenn nur die Versionsverwaltung gelöscht"
+      echo "werden soll, einfach [Enter] drücken."
+      echo
+      echo "Datei auswählen:"
+      echo
+      listfiles
+      
+      echo
+      echo -n -e "${CPURPLE}>$CNOCOLOR "
+      read INPUT
+      local delfile="$PWROOT/$INPUT.txt"
+   
+      if [ ! "$INPUT" == "" ] && [ -f "$delfile.gpg" ]; then
+         
+         echo
+         TMPPW=$(readpassword "Masterkennwort zur Bestätigung")
+         echo
+         RESULT=$(checkmasterpw "$TMPPW" "$delfile")
+         if [ "$RESULT" == "2" ]; then
+            echo "Masterkennwort wurde falsch eingegeben!"
+            waitforenter
+            return
+         else
+            rm "$delfile.gpg"
+            echo "Datei erfolgreich gelöscht!"
+            echo
+            git add -A
+            git commit -m "Datei gelöscht: $INPUT $(date)"
+         fi
+         
+      fi
+      
+      
+   fi
+   
+   if [ "$GITAVAILABLE" == "1" ]; then
+      echo
+      resetgit
+   fi
+
 }
 
 
@@ -532,6 +585,14 @@ fi
 chown -R $USER:$GROUP "$PWROOT"
 chmod -R u=rwx,go=- "$PWROOT"
 
+
+
+clear
+banner
+echo
+
+
+
 # Enter master password
 changefile "$PWFILE"
 RESULT=$?
@@ -569,13 +630,13 @@ echo -e "${CPURPLE}5]$CNOCOLOR Login Passwort ändern"
 echo -e "${CPURPLE}6]$CNOCOLOR Masterkennwort ändern"
 if [ "$GITAVAILABLE" == "1" ]; then
    echo -e "${CPURPLE}7]$CNOCOLOR Historie der Versionsverwaltung anzeigen"
-   echo -e "${CPURPLE}8]$CNOCOLOR Versionsverwaltung zurücksetzen"
 fi
 if [ "$USER" == "root" ] && [ "$(isinstalled)" == "1" ]; then
-   echo -e "${CPURPLE}9]$CNOCOLOR pwmgrsh deinstallieren"
+   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh deinstallieren"
 elif [ "$USER" == "root" ] && [ "$(isinstalled)" == "0" ]; then
-   echo -e "${CPURPLE}9]$CNOCOLOR pwmgrsh installieren"
+   echo -e "${CPURPLE}8]$CNOCOLOR pwmgrsh installieren"
 fi
+echo -e "${CPURPLE}9]$CNOCOLOR Zurücksetzen"
 echo
 echo -e "${CPURPLE}0]$CNOCOLOR Ausloggen"
 echo
@@ -608,10 +669,10 @@ case $INPUT in
    if [ "$GITAVAILABLE" == "1" ]; then githistory; else unknownoption; fi
    ;;
 8)
-   if [ "$GITAVAILABLE" == "1" ]; then resetgit; else unknownoption; fi
+   if [ "$USER" == "root" ]; then installpwmgrsh; else unknownoption; fi
    ;;
 9)
-   if [ "$USER" == "root" ]; then installpwmgrsh; else unknownoption; fi
+   resetpwmgr
    ;;
 0)
    break;
