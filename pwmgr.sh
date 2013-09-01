@@ -63,6 +63,7 @@ function banner() {
    echo -e " |_|               (_____|                $CNOCOLOR"
    echo -e "${CRED}Password Manager Shell by Christian Blechert"
    echo -e "Source Code: https://github.com/agentp/pwmgrsh"
+   echo -e "Aktiver Benutzer: $CNOCOLOR$USER${CRED}"
    echo -e "Aktive Passwort Datei:$CNOCOLOR $(basename "$PWFILE" | sed 's/\.txt$//g')"
 }
 
@@ -347,11 +348,11 @@ function listfiles() {
       fi
       echo -n "] "
       echo -e "${CGREEN}$linefile$CNOCOLOR"
-   done <<< "$(ls -1)"
+   done <<< "$(ls -1  | grep -E '\.gpg$')"
 }
 
 function filescount() {
-   ls -1 | wc -l
+   ls -1  | grep -E '\.gpg$' | wc -l
 }
 
 # Change the password file
@@ -395,7 +396,12 @@ function changefile() {
       if [ "$TMPPWA" == "$TMPPWB" ]; then
          PWFILE="$targetfile"
          PW="$TMPPWA"
+         
          echo "Neue Datei, erstellt am $(date)" > $PWFILE
+         echo "Acii Art Generator: http://patorjk.com/software/taag/#p=display&f=Graceful&t=passwords" >> $PWFILE
+         echo >> $PWFILE
+         echo "EOF" >> $PWFILE
+         
          fileencrypt "$PW" "$PWFILE"
          rm "$PWFILE"
       else
@@ -492,7 +498,7 @@ GROUP=$(id -g -n)
 
 # Set PWROOT
 PWROOT="$(cat /etc/passwd | grep -E "^$USER:" | cut -d ':' -f 6)/.pwmgrsh"
-TMPPWFILE="$PWROOT/.temppw.$$"
+TMPPWFILE="$PWROOT/.$$.temppw"
 PWFILE="$PWROOT/passwords.txt"
 
 # Select first pwfile if passwords.txt.gpg not exist
@@ -574,7 +580,8 @@ if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
    fi
 
    git init
-   echo "$PWFILE" > .gitignore
+   echo "*.txt" > .gitignore
+   echo "*.temppw" >> .gitignore
    echo "$TMPPWFILE" >> .gitignore
    git add -A
    git commit -m "Created git repo and added .gitignore"
