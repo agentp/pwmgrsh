@@ -580,11 +580,15 @@ if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
    fi
 
    git init
+   echo
+fi
+
+# Create .gitignore
+if [ ! -f "$PWROOT" ]; then
    echo "*.txt" > .gitignore
    echo "*.temppw" >> .gitignore
-   echo "$TMPPWFILE" >> .gitignore
    git add -A
-   git commit -m "Created git repo and added .gitignore"
+   git commit -m "Added .gitignore"
    echo
 fi
 
