@@ -567,24 +567,24 @@ cd "$PWROOT"
 
 # Kill unencrypted pasword file if exist
 if [ -f "$PWFILE" ]; then
-   rm "$PWFILE"
+   rm "*.txt"
+fi
+
+# Create git userconfig if not exist
+if [ ! -f "$HOME/.gitconfig" ] && [ "$GITAVAILABLE" == "1" ]; then
+   git config --global user.email "$USER@localhost"
+   git config --global user.name "$USER"
 fi
 
 # Initialize GIT repo
 if [ ! -d "$PWROOT/.git" ] && [ "$GITAVAILABLE" == "1" ]; then
    echo -e "${CPURPLE}Initialize git repository$CNOCOLOR"
-
-   if [ ! -f "$HOME/.gitconfig" ]; then
-      git config --global user.email "$USER@localhost"
-      git config --global user.name "$USER"
-   fi
-
    git init
    echo
 fi
 
 # Create .gitignore
-if [ ! -f "$PWROOT" ]; then
+if [ ! -f "$PWROOT/.gitignore" ] && [ "$GITAVAILABLE" == "1" ]; then
    echo "*.txt" > .gitignore
    echo "*.temppw" >> .gitignore
    git add -A
