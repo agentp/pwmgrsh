@@ -438,7 +438,7 @@ function changefile() {
          RESULT=$(checkmasterpw "$NEWPW" "$targetfile")
          if [ "$RESULT" == "2" ]; then
             echo "Masterkennwort nicht korrekt!"
-            echo "Dateiwechsel abgebrochen."
+            echo "Operation abgebrochen."
             waitforenter
             return 3
          else
@@ -549,12 +549,9 @@ do
 done;
 echo
 
-if [ "$ERROR" == "1" ] || [ "$GITAVAILABLE" == "0" ]; then
+if [ "$ERROR" == "1" ]; then
    echo -e "${CRED}Einige Programme wurden nicht gefunden! Bitte nachinstallieren!$CNOCOLOR"
    waitforenter
-fi
-
-if [ "$ERROR" == "1" ]; then
    exit 1
 fi
 
@@ -575,7 +572,7 @@ if [ "$VIMAVAILABLE" == "0" ] && [ "$NANOAVAILABLE" == "0" ]; then
    echo -e "${CRED}Es wurde kein kompatibler Editor gefunden!$CNOCOLOR"
    echo -e "${CRED}Bitte installiere vim oder nano.$CNOCOLOR"
    waitforenter
-   exit
+   exit 1
 fi
 
 
@@ -647,31 +644,31 @@ chmod -R u=rwx,go=- "$PWROOT"
 
 
 
-clear
-banner
-echo
-
-
-
 # Enter master password
-changefile "$PWFILE"
-RESULT=$?
+while true; do
+   clear
+   banner
+   echo
 
-echo
-if [ "$RESULT" == "1" ]; then
-   echo "Aktionen abgebrochen."
-elif [ "$RESULT" == "2" ]; then
-   echo "Masterkennwörter stimmen nicht überein!"
-elif [ "$RESULT" == "3" ]; then
-   echo "Masterkennwort ist nicht korrekt!"
-fi
+   changefile "$PWFILE"
+   RESULT=$?
 
-if [ ! "$RESULT" == "0" ]; then
-   echo "Verbindug wird beendet!"
-   waitforenter
-   exit 1
-fi
+   echo
+   if [ "$RESULT" == "0" ]; then
+      break
+   elif [ "$RESULT" == "1" ]; then
+      echo "Aktionen abgebrochen."
+   elif [ "$RESULT" == "2" ]; then
+      echo "Masterkennwörter stimmen nicht überein!"
+   elif [ "$RESULT" == "3" ]; then
+      echo "Masterkennwort ist nicht korrekt!"
+   else
+      echo "Unerwarteter Rückgabewert."
+      echo "Bitte Entwickler informieren!"
+      exit 1
+   fi
 
+done;
 
 
 # Run endless while
