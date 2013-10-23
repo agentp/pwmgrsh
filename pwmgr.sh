@@ -142,12 +142,18 @@ function filedecrypt() {
    local apwd="$1"
    local aaction="$2"
    local apwfile="$3"
+   local apager="$4"
 
    createpwfile "$apwd"
    local RES=9
-   if [ "$aaction" == "echo" ]; then
-      gpg -q --batch --yes --output - --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null
+   if [ "$aaction" == "test" ]; then
+      gpg -q --batch --yes --output - --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null > /dev/null &> /dev/null
       RES=$?
+   elif [ "$aaction" == "echo" ]; then
+      local CONTENT=$(gpg -q --batch --yes --output - --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null)
+      RES=$?
+      echo -e "$CONTENT" | $apager
+      unset CONTENT
    else
       gpg -q --batch --yes --passphrase-fd 0 "$apwfile.gpg" < "$TMPPWFILE" 2> /dev/null
       RES=$?
@@ -164,7 +170,7 @@ function checkmasterpw() {
    local apwfile="$2"
 
    if [ -f "$apwfile.gpg" ]; then
-      filedecrypt "$apwd" "echo" "$apwfile" 2> /dev/null > /dev/null
+      filedecrypt "$apwd" "test" "$apwfile"
       echo $?
    else
       echo 1
@@ -175,22 +181,33 @@ function checkmasterpw() {
 function showpasswords() {
    local apwd="$1"
    local apwfile="$2"
+   local apager="$3"
 
    clear
-   echo
-   echo -e "Zeige Passwörter an:"
-   echo -e "${CPURPLE}----------------------$CNOCOLOR"
-   echo
+   if [ "$apager" == "cat" ]; then
+      echo
+      echo -e "Zeige Passwörter an:"
+      echo -e "${CPURPLE}----------------------$CNOCOLOR"
+      echo
+   elif [ "$apager" == "less" ]; then
+      echo
+      echo "Durch die Passwortliste kann simpel mit den Pfeiltasten navigiert werden."
+      echo "Mit der Taste 'q' kann die Passwortliste geschlossen werden."
+      echo "Mit '/suchbegriff' kann nach Begriffen gesucht werden."
+      waitforenter
+   fi
 
    if [ -f "$apwfile.gpg" ]; then
-      filedecrypt "$apwd" "echo" "$apwfile"
+      filedecrypt "$apwd" "echo" "$apwfile" "$apager"
    else
       echo -e "${CRED}Keine verschlüsselte Passwortdatei gefunden$CNOCOLOR"
    fi
 
-   echo
-   echo -e "${CPURPLE}----------------------$CNOCOLOR"
-   waitforenter
+   if [ "$apager" == "cat" ]; then
+      echo
+      echo -e "${CPURPLE}----------------------$CNOCOLOR"
+      waitforenter
+   fi
 }
 
 # Edit the password list
@@ -508,13 +525,14 @@ fi
 
 
 
+# Check for programs
 clear
 banner
 echo
 echo "Prüfe auf alle benötigten Programme..."
 ERROR=0
 GITAVAILABLE=1
-for PROG in gpg vim cat chown chmod git nano read rm readlink dirname basename;
+for PROG in gpg cat chown chmod git read rm readlink dirname basename;
 do
    echo -n "Programm $PROG "
    if [ ! "$(checkprogram "$PROG")" == "0" ]; then
@@ -540,6 +558,37 @@ if [ "$ERROR" == "1" ]; then
    exit 1
 fi
 
+
+
+# Check for editors
+VIMAVAILABLE=0
+if [ "$(checkprogram "vim")" == "0" ]; then
+   VIMAVAILABLE=1
+fi
+
+NANOAVAILABLE=0
+if [ "$(checkprogram "nano")" == "0" ]; then
+   NANOAVAILABLE=1
+fi
+
+if [ "$VIMAVAILABLE" == "0" ] && [ "$NANOAVAILABLE" == "0" ]; then
+   echo -e "${CRED}Es wurde kein kompatibler Editor gefunden!$CNOCOLOR"
+   echo -e "${CRED}Bitte installiere vim oder nano.$CNOCOLOR"
+   waitforenter
+   exit
+fi
+
+
+
+# Detect pager
+MYPAGER="cat"
+if [ "$(checkprogram "less")" == "0" ]; then
+   MYPAGER="less"
+fi
+
+
+
+# Clear Screen
 clear
 banner
 echo
@@ -635,8 +684,12 @@ echo "Was möchtest Du machen?"
 echo
 echo -e "${CPURPLE}1]$CNOCOLOR Passwortdatei wechseln"
 echo -e "${CPURPLE}2]$CNOCOLOR Passwörter anzeigen"
-echo -e "${CPURPLE}3]$CNOCOLOR Passwörter mit vim bearbeiten"
-echo -e "${CPURPLE}4]$CNOCOLOR Passwörter mit nano bearbeiten"
+if [ "$VIMAVAILABLE" == "1" ]; then
+   echo -e "${CPURPLE}3]$CNOCOLOR Passwörter mit vim bearbeiten"
+fi
+if [ "$NANOAVAILABLE" == "1" ]; then
+   echo -e "${CPURPLE}4]$CNOCOLOR Passwörter mit nano bearbeiten"
+fi
 echo -e "${CPURPLE}5]$CNOCOLOR Login Passwort ändern"
 echo -e "${CPURPLE}6]$CNOCOLOR Masterkennwort ändern"
 if [ "$GITAVAILABLE" == "1" ]; then
@@ -662,13 +715,13 @@ case $INPUT in
    changefile
    ;;
 2)
-   showpasswords "$PW" "$PWFILE"
+   showpasswords "$PW" "$PWFILE" "$MYPAGER"
    ;;
 3)
-   editpasswords vim "$PW" "$PWFILE"
+   if [ "$VIMAVAILABLE" == "1" ]; then editpasswords vim "$PW" "$PWFILE"; else unknownoption; fi
    ;;
 4)
-   editpasswords nano "$PW" "$PWFILE"
+   if [ "$NANOAVAILABLE" == "1" ]; then editpasswords nano "$PW" "$PWFILE"; else unknownoption; fi
    ;;
 5)
    changepassword
